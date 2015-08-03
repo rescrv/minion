@@ -1,0 +1,61 @@
+Minion
+======
+
+Minion is a meta-build system for scripting and automating release tasks such
+as tarball generation and packaging.  It's an opinionated toolchain built on
+top of Git, Docker, and Python.
+
+                           :7:::,
+                    ::::::::::::::::::,
+                  ::::::::::::::::::::::::I
+                :=:::::::::::::::,?  :~7OZ::,
+              :::::=+=,::::::::7 +??$ZOZ?IZO::=
+          , ~~::  +$$777$O:~~~ ?+O+?===??ZZIO::,     ,8OD
+           ~~: +I$D7II7ZZ+$O~ Z$+~:,,,,::~IZ=O:::    88O8N
+          ~~= ZZ?~:::::~=?Z=$$?I:,,    ,,,~IZ7$,::    DO8N
+         ===~$Z?:,,,,,,,:~IZ+ZZ=,,  ,?  ,,:=I+7DD8    M8DNDZ8D
+        :==IIII~,, , ,,,,:~7Z$$~,, 87O8O,,:~?+Z:NNDD  N8D8OO8D
+        === $++:,, DO8O7,,:+ZZ?=:,,8OMMO,::=+7$IDDDD  DD88O8
+        +=D+Z+?:,, OMMDO,,~?ZIZ+~,,,DO8?,:~I$ZZZ7OND$ NNNNNN
+        DDDZ$ZI~:,,88OO8,:~I$ZZZ$=~::,::~+I7$$?+=++IN ND8OD
+       DNDD8~ZZI=:,,,,,::=IO$O$ZO+O?+=++I77ZZ?=====?Z DDD8N
+       NDDNM$+ZZ7?=~~~==+:?$O$$$7OOOZOZ$ZOOO+=~~~~=++ DDDDDN
+       DDM$I???8OZ?I+~$??$O$IIIIIII?ZO8Z8++==~~~~~~=?  ?==?
+       DMI?++++?I$OOZZZZOO??+++++++++++++===~~::~~~=?  +==?
+         +++++==++++????+++==============~~~~::~~~~=+  +==?
+         :++=========++====~~~~~~~~~~~~~~~::::::~~~=+  +~=?
+          +=============~~~~~~~::::::::::::::::~~~~=+, +==+
+          +=====~~~~~~~~~~~~~:::::::::::::::::::~~~~++ +==+
+          +===~~~~~~~~~~~~~~~::::::::::::::::::::~~~=? +~=+
+          +===~~~~~~~~~~~~~~~~::::::::::::::::::::~~=? +~=?
+          +===~~~~~~~~~~~~~~~~~:::::::::::~~=~::::~~=? =~=+
+          ===~~~~~~~~===~~====+?II$Z$7IZ$7I$O~::::~==?,=~=?
+          ~==~~~~~~~~87IIII=~~~~+Z:,, ,=:~=?O::::~~=+$?~~=?
+          ~==~~~~~~~~~Z+==7DDNNNDD888DD8DDZ$:::::~~=8O?~~=
+          ?+==~~~~~~~~~=8OOZZ$ZZZZ$:,, 77$?::::::~+OO8=~~=
+          I$?I$I~~~~~~~~~~I7I::::~~=+?=~:::,::::~+O8O?~~~+
+         ~?$I?7$$$7$IZ7OI$$O+::~::::::::::~~:ZZZZ8OO$+~~~~
+         +??++=?I$$$DNI?$I?I$$?$+$+?:77ZIZ+Z$8ZOMNZ~~=~~=
+       =++++====~=++8N$Z$7?II?$$$$7$7$7$77ZZZZOOMN~~~~~~=
+    :===++++==~~~~=7Z$?IZ$$Z$Z$Z$I77I$77$7ZZZZZZOO~~~~~~+
+   ==++?++++==~~~~~I777$+7I7$7~7$77I7=I7I$$ZZ$ZOO$~~~~~~:
+ ===?I7$7I?+==~~~~~=Z$$III?II7$Z7?MMIMZ$$7ZIZ7OZ$O~~~~~=,
+ =?I7I    I?+=~~~~~+$7I?7III$$7$7MNIZ7MO$=$777ZZOZ~~~~==
+,====+=   I?+=~~~~~IIII77?I+7Z~$7M+ND7ZO$O$$IZ$ZOZ~~~==+
+ :?+=++?DDN?+=~~~~~$77I$I$I?$$7Z$OM77$MD7ZZ$$77$ZO~~==++
+    7?+D8DDI?+=~=~=77$$77$ZZII7ZZ$IMOMOZ$7Z$Z$$7$ZO~==+?
+      NNN$7??77IIZIZ$$I?$$Z7Z$$$7+ZI77$$7IZZOZZO7$O8?++,
+      ,NN7?$$77$I7$???+=$77ZZ$7Z77I$Z$7ZOZZZO7Z7O$8OZOO
+     $D8D$$?7$$$III7=III77ZZ$ZOZ$Z$77ZZZ$$OO$ZZZ$$O8888=
+     =DNNN7?77I7Z+I?I7?$77OZO8ZZZZ7I7ZZZOOO$Z$Z7$$IZO88?
+      NNNMM7I?Z$++?$7$7Z7ZZ$Z$IZ$$$$ZZ$$ZOZZZ7$$$OZOO88
+            ZZ$Z$?$$$7$7ZZZZ$ZZ$$Z$$ZZ$OO$$ZZOOOZZZ$OO8
+              ZOZZZ7Z$ZZOOZZZZ$$ZOZ$OOOOZZZZOOZZ$OOOO8
+                OOOOOZOOOOZO8OZOOOZOO8OOOOOOOOOOOO88
+                   DNNDDDD88D8O887888O8DDD8DDD8DD8
+                    88DDDD8DDNNDDNNNNNNNNNNNNN
+                    OOZOOO88DZ   +O8888888DD
+                    ZZ$ZZZOO88   IOZZZOOOO8Z
+                    Z$$ZZO8NM     $7I7$$ZO8
+                 OOZ8DNNNNDDN     MNDDNNNND8O8:
+                 DZ$$$ZONDMNN     MMMNNO$7$O88D
