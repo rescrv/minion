@@ -188,6 +188,7 @@ class JobController(object):
         self.mtx = threading.Lock()
         self.cnd = threading.Condition(self.mtx)
         self.failed = -1
+        self.retry_failures = False
 
     def success(self):
         return self.failed == self.count
@@ -244,6 +245,11 @@ class JobController(object):
         oid = self.minion.processes.lookup(iid)
         return oid is not None
 
+    def get_cached(self, proc, stub):
+        iid = self.minion.blobs.cat(stub)
+        oid = self.minion.processes.lookup(iid)
+        return self.minion.read_output(proc, oid)
+
     def finish_cached(self, proc, stub, released=False):
         iid = self.minion.blobs.cat(stub)
         oid = self.minion.processes.lookup(iid)
@@ -275,7 +281,6 @@ class JobController(object):
         iid = self.minion.blobs.cat(stub)
         oid = self.minion.blobs.cat(record.encode('utf8'))
         with self.mtx:
-            assert self.minion.processes.lookup(iid) is None
             if success:
                 logger.info('finished: success')
             else:
@@ -290,7 +295,7 @@ class JobController(object):
         return self.finish_bool(False, proc, stub, log, {})
 
     def finish_exception(self, proc, stub, e):
-        return self.finish_bool(False, proc, stub, str(e), {})
+        self.abort_if_not_finished(proc)
 
     def abort_if_not_finished(self, proc):
         with self.mtx:
@@ -360,16 +365,16 @@ Image: %s
             logger.debug('docker image is %r' % image)
             stub = self.stub(sources, artifacts, image)
             if self.controller.is_cached(stub):
-                logger.debug('finishing with cached copy')
-                self.controller.finish_cached(self.proc, stub)
-                return
+                success, X, X = self.controller.get_cached(self.proc, stub)
+                if success or not self.controller.retry_failures:
+                    logger.debug('finishing with cached copy')
+                    self.controller.finish_cached(self.proc, stub)
+                    return
             success, log, artifacts =  self.run_image(sources, artifacts, stub, image)
             if success:
                 self.controller.finish_success(self.proc, stub, log, artifacts)
             else:
                 self.controller.finish_error(self.proc, stub, log)
-        except MinionException as e:
-            self.controller.finish_exception(self.proc, stub, e)
         except Exception as e:
             logger.exception('docker worker failed')
         finally:
@@ -442,7 +447,7 @@ Image: %s
             new_artifacts_by_id = {}
             for a in self.proc.artifacts:
                 if a.var not in new_artifacts:
-                    return False, "process %s failed to produce artifact %s\n" % (self.proc.name, a) + log.decode('utf8', 'ignore'), {}
+                    return False, "process %s failed to produce artifact %s\n" % (self.proc.name, a) + log, {}
                 new_artifacts_by_id[a] = new_artifacts[a.var]
             p = subprocess.Popen(('docker', 'rm', name),
                                  stdin=subprocess.PIPE,
@@ -588,10 +593,13 @@ class MinionDaemon(object):
         return os.path.join(self.workdir, 'targets')
 
     def TARGET(self, name):
-        TARGET_RE = '^[a-zA-Z0-9_][-a-zA-Z0-9_.]*$'
-        if not re.match(TARGET_RE, name):
+        if not self.IS_TARGET(name):
             raise MinionException('invalid name for a target')
         return os.path.join(self.TARGETS, name)
+
+    def IS_TARGET(self, name):
+        TARGET_RE = '^[a-zA-Z0-9_][-a-zA-Z0-9_.]*$'
+        return re.match(TARGET_RE, name) is not None
 
     class JobWorker(threading.Thread):
 
@@ -681,7 +689,7 @@ class MinionDaemon(object):
     def configure_logging(self):
         fmt = '%(asctime)s %(levelname)-8s %(message)s'
         dtf = '%Y-%m-%dT%H:%M:%S'
-        logging.basicConfig(filename=self.LOGFILE, format=fmt, datefmt=dtf, level=logging.DEBUG)
+        logging.basicConfig(filename=self.LOGFILE, format=fmt, datefmt=dtf, level=logging.INFO)
         logger.info('starting new minion-daemon: pid=%d' % os.getpid())
 
     def create_socket(self):
@@ -801,24 +809,43 @@ class MinionDaemon(object):
                 return self.dispatch_new_target(sock, cmd[1:])
             elif cmd[0] == 'del-target':
                 return self.dispatch_del_target(sock, cmd[1:])
-            elif cmd[0] == 'sync-target':
-                return self.dispatch_sync_target(sock, cmd[1:])
-            elif cmd[0] == 'set-target-refspec':
-                return self.dispatch_set_target_refspec(sock, cmd[1:])
-            elif cmd[0] == 'run-build-process':
-                return self.dispatch_run_build_process(sock, cmd[1:])
-            elif cmd[0] == 'build-status':
-                return self.dispatch_build_status(sock, cmd[1:])
-            elif cmd[0] == 'forget-build-failure':
-                return self.dispatch_forget_build_failure(sock, cmd[1:])
+            elif cmd[0] == 'set-refspec':
+                return self.dispatch_set_refspec(sock, cmd[1:])
+            elif cmd[0] == 'build':
+                return self.dispatch_build(sock, cmd[1:])
+            elif cmd[0] == 'status':
+                return self.dispatch_status(sock, cmd[1:])
             elif cmd[0] == 'add-blob':
                 return self.dispatch_add_blob(sock, cmd[1:])
             else:
                 logger.error('submitted unknown command %r' % (cmd[0],))
                 return {'status': 'error', 'error': 'unknown command %r' % (cmd[0],)}
-        except MinionException as e:
-            logger.error('%s failed: %s' % (cmd[0], e))
+        except Exception as e:
+            logger.exception('%s failed' % (cmd[0],))
             return {'status': 'exception', 'error': str(e)}
+
+    def sync_target(self, parsed, sources, target, HEADS):
+        path = self.TARGET(target)
+        auto = self.sources_load(os.path.join(path, 'AUTO'))
+        heads = self.sources_load(os.path.join(path, 'HEADS'))
+        for k in set(auto.keys()):
+            if k not in HEADS:
+                del auto[k]
+        for k in set(heads.keys()):
+            if k not in HEADS:
+                del heads[k]
+        for src in sources:
+            name = src.name.normal
+            assert name in HEADS
+            if name not in heads or \
+               name not in auto or \
+               (auto[name] == heads[name] and auto[name] != HEADS[name]):
+                heads[name] = HEADS[name]
+                logger.info('updating head %r in target %r' % (name, target))
+            auto[name] = HEADS[name]
+        parsed_names = [p.name.normal for p in parsed]
+        self.sources_save(os.path.join(path, 'AUTO'), auto, parsed_names)
+        self.sources_save(os.path.join(path, 'HEADS'), heads, parsed_names)
 
     def dispatch_update_heads(self, sock, cmd):
         parser = minion.cmd.update_heads(MinionThrowingArgumentParser())
@@ -853,7 +880,16 @@ class MinionDaemon(object):
                 missing = sorted(missing, key=parsed_names.index)
                 logger.warning('missing head for %s' % (', '.join(missing),))
             self.sources_save(self.HEADS, new_ptrs, parsed_names)
+            for target in self.list_targets():
+                self.sync_target(parsed, sources, target, new_ptrs)
         return {'status': 'success'}
+
+    def list_targets(self):
+        targets = []
+        for x in os.listdir(self.TARGETS):
+            if self.IS_TARGET(x):
+                targets.append(x)
+        return sorted(targets)
 
     def dispatch_new_target(self, sock, cmd):
         parser = minion.cmd.new_target(MinionThrowingArgumentParser())
@@ -881,33 +917,8 @@ class MinionDaemon(object):
             shutil.rmtree(path)
         return {'status': 'success'}
 
-    def dispatch_sync_target(self, sock, cmd):
-        parser = minion.cmd.sync_target(MinionThrowingArgumentParser())
-        args = parser.parse_args(cmd)
-        with self._heads_mtx:
-            parsed, sources = self.parsed_sources(args.sources)
-            if not os.path.exists(self.HEADS):
-                raise MinionException('heads missing; run update-heads and retry')
-            path = self.TARGET(args.target)
-            if not os.path.exists(path):
-                raise MinionException("target %r doesn't exist" % args.target)
-            old_auto = self.sources_load(os.path.join(path, 'AUTO'))
-            new_auto = self.sources_load(self.HEADS)
-            heads = self.sources_load(os.path.join(path, 'HEADS'))
-            for src in sources:
-                name = src.name.normal
-                if name not in new_auto:
-                    raise MinionException('head %s missing; run update-heads and retry' % src.name)
-                if name not in heads or name not in old_auto or old_auto[name] != new_auto[name]:
-                    heads[name] = new_auto[name]
-                    logger.info('updating head %r in target %r' % (name, args.target))
-            parsed_names = [p.name.normal for p in parsed]
-            self.sources_save(os.path.join(path, 'AUTO'), new_auto, parsed_names)
-            self.sources_save(os.path.join(path, 'HEADS'), heads, parsed_names)
-        return {'status': 'success'}
-
-    def dispatch_set_target_refspec(self, sock, cmd):
-        parser = minion.cmd.set_target_refspec(MinionThrowingArgumentParser())
+    def dispatch_set_refspec(self, sock, cmd):
+        parser = minion.cmd.set_refspec(MinionThrowingArgumentParser())
         args = parser.parse_args(cmd)
         with self._heads_mtx:
             path = self.TARGET(args.target)
@@ -927,8 +938,8 @@ class MinionDaemon(object):
             self.sources_save(os.path.join(path, 'HEADS'), heads, parsed_names)
         return {'status': 'success'}
 
-    def dispatch_run_build_process(self, sock, cmd):
-        parser = minion.cmd.run_build_process(MinionThrowingArgumentParser())
+    def dispatch_build(self, sock, cmd):
+        parser = minion.cmd.build(MinionThrowingArgumentParser())
         args = parser.parse_args(cmd)
         chosen_procs = None
         if args.processes:
@@ -948,6 +959,7 @@ class MinionDaemon(object):
         sources = self.blobs.path(sblob)
         logger.debug('using sources %s' % sources)
         jc = JobController(self, self.sources_load(sources), report_name)
+        jc.retry_failures = args.retry_failures
         for proc in self.parse(minionfile):
             if not isprocess(proc):
                 continue
@@ -969,10 +981,6 @@ class MinionDaemon(object):
 
     def get_build(self, target, name=None):
         with self._builds_mtx:
-            for build in self._builds_set:
-                target, name = build.split(':', 1)
-                if target == target and (name is None or name == name):
-                    return 'in-progress'
             builds = os.listdir(self.BUILDS)
             def keep(x):
                 if name is None:
@@ -987,24 +995,24 @@ class MinionDaemon(object):
             if builds:
                 return builds[0]
             else:
-                return 'not-found'
+                return None
 
-    def dispatch_build_status(self, sock, cmd):
-        parser = minion.cmd.build_status(MinionThrowingArgumentParser())
+    def dispatch_status(self, sock, cmd):
+        parser = minion.cmd.status(MinionThrowingArgumentParser())
         args = parser.parse_args(cmd)
         if args.name is not None:
-            logger.info('checking build status of %s:%s' % (args.target, args.name))
+            display_name = '%s:%s' % (args.target, args.name)
         else:
-            logger.info('checking build status of %s' % (args.target,))
+            display_name = '%s' % args.target
+        logger.info('checking build status of %s' % display_name)
         build = self.get_build(args.target, args.name)
-        reporter = getattr(self, 'report_' + args.report, None)
+        reporter = args.report.replace('-', '_')
+        reporter = getattr(self, 'report_' + reporter, None)
         if reporter is None:
-            raise MinionException('unimplemented report type %r' % args.report)
-        if build == 'in-progress':
-            return {'status': 'success', 'output': '%s is still running' % args.target}
-        if build == 'not found':
-            return {'status': 'success', 'output': 'no such build as %s' % args.target}
-        logger.info('generating %s report of %s' % (args.report, build))
+            return {'status': 'failure', 'output': 'no such reporter'}
+        if build is None:
+            return {'status': 'failure', 'output': 'no such build as %s' % display_name}
+        logger.info('generating %s report of %s' % (args.report, display_name))
         build = open(os.path.join(self.BUILDS, build)).read()
         report = json.loads(build)
         return {'status': 'success', 'output': reporter(report)}
@@ -1034,7 +1042,6 @@ class MinionDaemon(object):
                 r += '\n'
             else:
                 r += '%s: failure\n' % x['name']
-                break
         return r
 
     def report_long(self, report):
@@ -1057,25 +1064,66 @@ class MinionDaemon(object):
                 r += '%s: failure\n' % x['name']
                 proc = None
                 for p in parsed:
-                    if p.name.normal == x['name']:
+                    if str(p.name) == x['name']:
                         proc = p
-                if p is None:
+                if proc is None:
                     raise MinionException('report corrupt')
                 success, log, artifacts = self.read_output(proc, x['outputs'])
                 r += log.decode('utf8')
                 break
         return r
 
-    def dispatch_forget_build_failure(self, sock, cmd):
-        parser = minion.cmd.forget_build_failure(MinionThrowingArgumentParser())
-        args = parser.parse_args(cmd)
-        buildname = self.get_build(args.target, args.name)
-        build = open(os.path.join(self.BUILDS, buildname)).read()
-        report = json.loads(build)
+    def report_full(self, report):
+        r = ''
+        r += 'Minionfile: %s\n' % report['minionfile']
+        r += 'Sources: %s\n' % report['sources']
+        r += '\n'
+        parsed = self.parse(self.blobs.path(report['minionfile']))
+        for idx, x in enumerate(report['reports']):
+            print_log = False
+            if x['success']:
+                r += x['name'] + ': success'
+                if x['released']:
+                    r += ' [released]'
+                elif x['cached']:
+                    r += ' [cached]'
+                r += '\n'
+                print_log = True
+            elif '-' in (x['inputs'], x['outputs']) and not x['cached']:
+                r += '%s: aborted\n' % x['name']
+            else:
+                r += '%s: failure\n' % x['name']
+                print_log = True
+            if print_log:
+                proc = None
+                for p in parsed:
+                    if str(p.name) == x['name']:
+                        proc = p
+                if proc is None:
+                    raise MinionException('report corrupt')
+                success, log, artifacts = self.read_output(proc, x['outputs'])
+                r += log.decode('utf8')
+                r += '\n' + '=' * 80 + '\n\n'
+        return r
+
+    def report_failed(self, report):
+        r = ''
+        for idx, x in enumerate(report['reports']):
+            if not x['success']:
+                r += '%s\n' % x['name']
+        return r
+
+    def report_docker_images(self, report):
+        r = ''
         for x in report['reports']:
-            if x['name'] == args.process:
-                self.processes.forget(x['inputs'])
-                logger.info('removed failed build %s from build %s' % (args.process, buildname))
+            if x['inputs'] == '-':
+                continue
+            stub = self.blobs.read(x['inputs']).decode('utf8', 'ignore')
+            match = re.search('^Image: (\w+)$', stub, re.MULTILINE)
+            if match is None:
+                continue
+            r += match.group(1) + '\n'
+        return r
 
     def dispatch_add_blob(self, sock, cmd):
         parser = minion.cmd.add_blob(MinionThrowingArgumentParser())
@@ -1083,6 +1131,7 @@ class MinionDaemon(object):
         for blob in args.blobs:
             sha256 = self.blobs.add(blob)
             logger.info('manually added %s as %s...' % (blob, sha256[:8]))
+        return {'status': 'success'}
 
     def sources_load(self, path):
         if not os.path.exists(path):
@@ -1179,11 +1228,9 @@ def main_tool(argv):
     minion.cmd.update_heads(subparsers.add_parser('update-heads', help='fetch the latest sources'))
     minion.cmd.new_target(subparsers.add_parser('new-target', help='create a new build target'))
     minion.cmd.del_target(subparsers.add_parser('del-target', help='remove an existing build target'))
-    minion.cmd.sync_target(subparsers.add_parser('sync-target', help="synchronize a target's sources with the heads"))
-    minion.cmd.set_target_refspec(subparsers.add_parser('set-target-refspec', help='manually set the HEAD for a target/source pair'))
-    minion.cmd.run_build_process(subparsers.add_parser('run-build-process', help='run the build process for a target (async)'))
-    minion.cmd.build_status(subparsers.add_parser('build-status', help='check the status of a build'))
-    minion.cmd.forget_build_failure(subparsers.add_parser('forget-build-failure', help='remove a cached process result for a given build target'))
+    minion.cmd.set_refspec(subparsers.add_parser('set-refspec', help='manually set the HEAD for a target/source pair'))
+    minion.cmd.build(subparsers.add_parser('build', help='run the build process for a target (async)'))
+    minion.cmd.status(subparsers.add_parser('status', help='check the status of a build'))
     minion.cmd.add_blob(subparsers.add_parser('add-blob', help='manually add a blob'))
 
     # run it

@@ -37,39 +37,27 @@ def del_target(parser):
     parser.add_argument('target', type=str, help='name of the target to remove')
     return parser
 
-def sync_target(parser):
-    parser.add_argument('target', type=str, help='name of the target to remove')
-    parser.add_argument('sources', metavar='SOURCE', type=str, nargs='*',
-                        help='the list of sources to update')
-    return parser
-
-def set_target_refspec(parser):
+def set_refspec(parser):
     parser.add_argument('target', type=str, help='name of the target to remove')
     parser.add_argument('source', type=str, help='the sources to update')
     parser.add_argument('refspec', type=str, help='the refspect to set')
     return parser
 
-def run_build_process(parser):
+def build(parser):
     parser.add_argument('--name', type=str, default=None,
                         help='name to use when saving this report')
     parser.add_argument('--processes', type=str,
                         help='name to use when saving this report')
+    parser.add_argument('--retry-failures', action='store_true', default=False)
     parser.add_argument('target', type=str, help='name of the target to build')
     return parser
 
-def build_status(parser):
+def status(parser):
     parser.add_argument('--name', type=str, default=None,
                         help='name of the build (defaults to the latest)')
-    parser.add_argument('--report', type=str, choices=('abbrev', 'short', 'long'),
+    parser.add_argument('--report', type=str, choices=('abbrev', 'short', 'long', 'full', 'failed', 'docker-images'),
                         default='long', help='type of report to generate')
     parser.add_argument('target', type=str, help='name of the target to check')
-    return parser
-
-def forget_build_failure(parser):
-    parser.add_argument('--name', type=str, default=None,
-                        help='name of the build (defaults to the latest)')
-    parser.add_argument('target', type=str, help='the target to manipulate')
-    parser.add_argument('process', type=str, help='name of the process to forget')
     return parser
 
 def add_blob(parser):
