@@ -55,7 +55,7 @@ def build(parser):
 def status(parser):
     parser.add_argument('--name', type=str, default=None,
                         help='name of the build (defaults to the latest)')
-    parser.add_argument('--report', type=str, choices=('abbrev', 'short', 'long', 'full', 'failed', 'docker-images'),
+    parser.add_argument('--report', type=str, choices=('one-bit', 'short', 'long', 'full', 'failed', 'docker-images'),
                         default='long', help='type of report to generate')
     parser.add_argument('target', type=str, help='name of the target to check')
     return parser

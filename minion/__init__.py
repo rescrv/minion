@@ -1017,7 +1017,7 @@ class MinionDaemon(object):
         report = json.loads(build)
         return {'status': 'success', 'output': reporter(report)}
 
-    def report_abbrev(self, report):
+    def report_one_bit(self, report):
         success = True
         for x in report['reports']:
             if not x['success']:
