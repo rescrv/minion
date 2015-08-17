@@ -30,6 +30,7 @@ import collections
 import datetime
 import errno
 import fcntl
+import fnmatch
 import hashlib
 import json
 import logging
@@ -612,7 +613,7 @@ class MinionDaemon(object):
             while True:
                 md = self.minion_daemon
                 output, jc = md._builds_queue.get()
-                logger.info('starting %r' % output['name'])
+                logger.info('[build %s] starting' % output['name'])
                 jc.run()
                 for report in jc.reports:
                     report = dict(report._asdict())
@@ -624,7 +625,7 @@ class MinionDaemon(object):
                 md.blobs.copy(rblob, os.path.join(md.BUILDS, report_name))
                 with md._builds_mtx:
                     md._builds_set.remove(report_name)
-                logger.info('finished %r' % output['name'])
+                logger.info('[build %s] finished' % output['name'])
 
     class Acceptor(threading.Thread):
 
@@ -748,15 +749,19 @@ class MinionDaemon(object):
             processnames2processes[proc.name] = proc
             for a in proc.artifacts:
                 artifacts2processnames[a] = proc.name
-        if not set(processes).issubset(normalnames):
-            missing = list(set(processes) - normalnames)[0]
-            raise MinionException('unknown process %r' % missing)
         q = collections.deque()
         required = set()
-        for p in processes:
-            p = ProcessIdentifier(p)
-            q.append(ProcessIdentifier(p))
-            required.add(p)
+        for proc in processes:
+            found = False
+            for cand in normalnames:
+                if fnmatch.fnmatch(cand, proc):
+                    found = True
+                    p = ProcessIdentifier(cand)
+                    if p not in required:
+                        required.add(p)
+                        q.append(p)
+            if not found:
+                raise MinionException('unknown process or pattern %r' % proc)
         while len(q) > 0:
             proc = q.pop()
             proc = processnames2processes[proc]
@@ -820,6 +825,9 @@ class MinionDaemon(object):
             else:
                 logger.error('submitted unknown command %r' % (cmd[0],))
                 return {'status': 'error', 'error': 'unknown command %r' % (cmd[0],)}
+        except MinionException as e:
+            logger.error('%s failed: %s' % (cmd[0], e))
+            return {'status': 'exception', 'error': str(e)}
         except Exception as e:
             logger.exception('%s failed' % (cmd[0],))
             return {'status': 'exception', 'error': str(e)}
