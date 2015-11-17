@@ -238,8 +238,12 @@ class JobController(object):
                 self.cnd.wait()
             d = set([d for d in proc.dependencies if isinstance(d, ArtifactIdentifier)])
             a = set(self.artifacts.keys())
-            logger.info('starting')
-            return self.failed > proc_count and (d & a) == d
+            if self.failed > proc_count and (d & a) == d:
+                logger.info('starting')
+                return True
+            else:
+                logger.info('skipped because of prior failure')
+                return False
 
     def is_cached(self, stub):
         iid = self.minion.blobs.cat(stub)
@@ -354,7 +358,6 @@ Image: %s
         try:
             logger.meta.prefix = '[build %s/%s] ' % (self.controller.name, self.proc.name)
             if not self.controller.wait_for(self.proc):
-                logger.info('aborting because of prior failure')
                 return
             sources, artifacts = self.controller.get_inputs()
             stub = self.stub(sources, artifacts, '-')
@@ -690,7 +693,7 @@ class MinionDaemon(object):
     def configure_logging(self):
         fmt = '%(asctime)s %(levelname)-8s %(message)s'
         dtf = '%Y-%m-%dT%H:%M:%S'
-        logging.basicConfig(filename=self.LOGFILE, format=fmt, datefmt=dtf, level=logging.INFO)
+        logging.basicConfig(filename=self.LOGFILE, format=fmt, datefmt=dtf, level=logging.DEBUG)
         logger.info('starting new minion-daemon: pid=%d' % os.getpid())
 
     def create_socket(self):
