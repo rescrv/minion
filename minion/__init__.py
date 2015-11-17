@@ -535,6 +535,8 @@ class MinionDaemon(object):
             os.makedirs(self.GITREPOS)
         if not os.path.exists(self.GITCACHE):
             os.makedirs(self.GITCACHE)
+        if not os.path.exists(self.TARGETS):
+            os.makedirs(self.TARGETS)
         if not os.path.exists(os.path.join(self.GITCACHE, 'config')):
             try:
                 p = subprocess.Popen(('git', 'init', '--bare'),
@@ -1156,7 +1158,7 @@ class MinionDaemon(object):
 
     def sources_save(self, path, x, order):
         x = x.copy()
-        for k in x.keys():
+        for k in list(x.keys()):
             if k not in order:
                 del x[k]
         def key(x):
