@@ -1,0 +1,31 @@
+/*
+.minion-main {
+    margin: auto;
+    width: 80%;
+}
+
+.minion-status-icon {
+    padding: 1em;
+}
+
+.minion-build-processes {
+    width: 100%;
+    max-width: 100%;
+    table-layout: fixed;
+}
+
+.minion-build-process-status {
+    padding: 1em;
+    margin: 1em;
+    display: block;
+}
+
+.minion-build-process-log pre {
+    overflow-x: scroll;
+}
+*/
+
+body {
+  min-height: 2000px;
+  padding-top: 70px;
+}

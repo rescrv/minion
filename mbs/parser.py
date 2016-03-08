@@ -31,7 +31,7 @@ import re
 import ply.lex
 import ply.yacc
 
-import minion
+import mbs
 
 class ParseError(Exception): pass
 
@@ -151,9 +151,9 @@ def p_source_static(t):
                   | SOURCE IDENTIFIER FETCH URL SHA256 SHA256SUM
     '''
     if len(t) == 5:
-        t[0] = FetchSource(name=minion.SourceIdentifier(t[2]), url=t[4], sha256=None)
+        t[0] = FetchSource(name=mbs.SourceIdentifier(t[2]), url=t[4], sha256=None)
     elif len(t) == 7:
-        t[0] = FetchSource(name=minion.SourceIdentifier(t[2]), url=t[4], sha256=t[6])
+        t[0] = FetchSource(name=mbs.SourceIdentifier(t[2]), url=t[4], sha256=t[6])
     else:
         assert False
 
@@ -163,9 +163,9 @@ def p_source_git(t):
                | SOURCE IDENTIFIER GIT URL BRANCH IDENTIFIER
     '''
     if len(t) == 5:
-        t[0] = GitSource(name=minion.SourceIdentifier(t[2]), url=t[4], branch='master')
+        t[0] = GitSource(name=mbs.SourceIdentifier(t[2]), url=t[4], branch='master')
     elif len(t) == 7:
-        t[0] = GitSource(name=minion.SourceIdentifier(t[2]), url=t[4], branch=t[6])
+        t[0] = GitSource(name=mbs.SourceIdentifier(t[2]), url=t[4], branch=t[6])
     else:
         assert False
 
@@ -194,7 +194,7 @@ def p_process_dockerfile(t):
                        | PROCESS IDENTIFIER DOCKERFILE IDENTIFIER ARTIFACTS artifact_list
                        | PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list ARTIFACTS artifact_list
     '''
-    name = minion.ProcessIdentifier(t[2])
+    name = mbs.ProcessIdentifier(t[2])
     path = t[4]
     dependencies = ()
     soft = ()
@@ -212,19 +212,19 @@ def p_process_dockerfile(t):
         artifacts = t[8]
     def dep(d):
         if isinstance(d, tuple):
-            return minion.ArtifactIdentifier(d[0], d[1])
+            return mbs.ArtifactIdentifier(d[0], d[1])
         else:
-            return minion.SourceIdentifier(d)
+            return mbs.SourceIdentifier(d)
     dependencies = tuple([dep(d) for d in dependencies])
     soft = tuple([dep(d) for d in soft])
     full = tuple([dep(d) for d in full])
-    artifacts = tuple([minion.ArtifactIdentifier(str(name), a) for a in artifacts])
+    artifacts = tuple([mbs.ArtifactIdentifier(str(name), a) for a in artifacts])
     define_envvar(t.lexer.envvars, name, t.lexer.path, t.lexer.lineno)
     for d in dependencies:
-        if isinstance(d, minion.ArtifactIdentifier):
+        if isinstance(d, mbs.ArtifactIdentifier):
             if d not in t.lexer.artifacts:
                 raise RuntimeError("process %s depends on unknown artifact %s" % (name, d))
-        if isinstance(d, minion.SourceIdentifier):
+        if isinstance(d, mbs.SourceIdentifier):
             if d not in t.lexer.sources:
                 raise RuntimeError("process %s depends on unknown source %s" % (name, d))
     for a in artifacts:

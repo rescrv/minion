@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% set active_page = 'builds' %}
+{% block main %}
+<div id="minion-builds"></div>
+<script type="text/babel">
+ReactDOM.render(
+    React.createElement(MinionBuildList, {{ builds|tojson|safe }}),
+    document.getElementById('minion-builds'));
+</script>
+{% endblock %}

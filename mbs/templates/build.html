@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block main %}
+<div id="minion-build"></div>
+<script type="text/babel">
+ReactDOM.render(
+    React.createElement(MinionBuildProcess, {{ build|tojson|safe }}),
+    document.getElementById('minion-build'));
+</script>
+{% endblock %}
