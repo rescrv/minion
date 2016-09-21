@@ -275,7 +275,7 @@ func ParseMinionfile(path string) (mf Minionfile, err error) {
 	mf = lex.mf
 	envvars := map[string]int{}
 	for _, s := range mf.Sources {
-        if strings.ContainsRune(s.Name(), '/') {
+		if strings.ContainsRune(s.Name(), '/') {
 			err = fmt.Errorf("source %s should contains a directory separator", s.Name(), s.Name(), NormalizeString(s.Name()))
 			return
 		}

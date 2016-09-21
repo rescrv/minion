@@ -821,32 +821,32 @@ func (md *MinionDaemon) writeProcessReport(proc Process, pr ProcessReport) (Blob
 type ArtifactMap map[Artifact]ArtifactPtr
 
 func (a ArtifactMap) MarshalJSON() ([]byte, error) {
-    bystr := make(map[string]ArtifactPtr)
-    for art, ptr := range(a) {
-        bystr[art.Display()] = ptr
-    }
-    return json.Marshal(bystr)
+	bystr := make(map[string]ArtifactPtr)
+	for art, ptr := range a {
+		bystr[art.Display()] = ptr
+	}
+	return json.Marshal(bystr)
 }
 
 func (a *ArtifactMap) UnmarshalJSON(text []byte) error {
-    *a = make(ArtifactMap)
-    var bystr map[string]ArtifactPtr
-    err := json.Unmarshal(text, &bystr)
-    if err != nil {
-        return err
-    }
-    for k := range *a {
-        delete(*a, k)
-    }
-    fmt.Printf("bystr: %s\n", bystr)
-    for k, v := range(bystr) {
-        pieces := strings.Split(k, "=>")
-        if len(pieces) != 2 {
-            return fmt.Errorf("invalid artifact")
-        }
-        (*a)[Artifact{pieces[0], pieces[1]}] = v
-    }
-    return nil
+	*a = make(ArtifactMap)
+	var bystr map[string]ArtifactPtr
+	err := json.Unmarshal(text, &bystr)
+	if err != nil {
+		return err
+	}
+	for k := range *a {
+		delete(*a, k)
+	}
+	fmt.Printf("bystr: %s\n", bystr)
+	for k, v := range bystr {
+		pieces := strings.Split(k, "=>")
+		if len(pieces) != 2 {
+			return fmt.Errorf("invalid artifact")
+		}
+		(*a)[Artifact{pieces[0], pieces[1]}] = v
+	}
+	return nil
 }
 
 type Build struct {
@@ -1029,30 +1029,30 @@ func (bd *Build) Run() (*BuildReport, error) {
 	for _, proc := range bd.mf.Processes {
 		procs = append(procs, proc.Name())
 	}
-    br := &BuildReport{BuildInfo: bd.BuildInfo,
+	br := &BuildReport{BuildInfo: bd.BuildInfo,
 		Processes: procs,
 		Reports:   bd.reports}
-    txt, err := json.Marshal(br)
-    if err != nil {
-        return br, err
-    }
+	txt, err := json.Marshal(br)
+	if err != nil {
+		return br, err
+	}
 	f, err := ioutil.TempFile(bd.md.TMP(), "process-report-")
-    if err != nil {
-        return br, err
-    }
-    defer f.Close()
-    n, err := f.Write(txt)
-    if err != nil {
-        return br, err
-    }
-    if n != len(txt) {
-        return br, fmt.Errorf("could not write build: short write")
-    }
-    err = f.Sync()
-    if err != nil {
-        return br, err
-    }
-    p := path.Join(bd.md.BUILDS(), fmt.Sprintf("%s:%s", bd.BuildInfo.Target, bd.BuildInfo.Name))
-    err = os.Rename(f.Name(), p)
-    return br, err
+	if err != nil {
+		return br, err
+	}
+	defer f.Close()
+	n, err := f.Write(txt)
+	if err != nil {
+		return br, err
+	}
+	if n != len(txt) {
+		return br, fmt.Errorf("could not write build: short write")
+	}
+	err = f.Sync()
+	if err != nil {
+		return br, err
+	}
+	p := path.Join(bd.md.BUILDS(), fmt.Sprintf("%s:%s", bd.BuildInfo.Target, bd.BuildInfo.Name))
+	err = os.Rename(f.Name(), p)
+	return br, err
 }
