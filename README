@@ -3,7 +3,7 @@ Minion
 
 Minion is a meta-build system for scripting and automating release tasks such
 as tarball generation and packaging.  It's an opinionated toolchain built on
-top of Git, Docker, and Python.
+top of Git, Docker, and Go.
 
                            :7:::,
                     ::::::::::::::::::,
