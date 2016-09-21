@@ -1,0 +1,453 @@
+
+state 0
+	$accept: .stmts $end 
+	stmts: .    (1)
+
+	SOURCE  shift 8
+	PROCESS  shift 9
+	.  reduce 1 (src line 60)
+
+	stmts  goto 1
+	stmt  goto 2
+	source  goto 3
+	source_static  goto 5
+	source_git  goto 6
+	process  goto 4
+	process_dockerfile  goto 7
+
+state 1
+	$accept:  stmts.$end 
+
+	$end  accept
+	.  error
+
+
+state 2
+	stmts:  stmt.SEMICOLON stmts 
+
+	SEMICOLON  shift 10
+	.  error
+
+
+state 3
+	stmt:  source.    (3)
+
+	.  reduce 3 (src line 76)
+
+
+state 4
+	stmt:  process.    (4)
+
+	.  reduce 4 (src line 81)
+
+
+state 5
+	source:  source_static.    (5)
+
+	.  reduce 5 (src line 86)
+
+
+state 6
+	source:  source_git.    (6)
+
+	.  reduce 6 (src line 87)
+
+
+state 7
+	process:  process_dockerfile.    (11)
+
+	.  reduce 11 (src line 111)
+
+
+state 8
+	source_static:  SOURCE.IDENTIFIER FETCH URL 
+	source_static:  SOURCE.IDENTIFIER FETCH URL SHA256 SHA256SUM 
+	source_git:  SOURCE.IDENTIFIER GIT URL 
+	source_git:  SOURCE.IDENTIFIER GIT URL BRANCH IDENTIFIER 
+
+	IDENTIFIER  shift 11
+	.  error
+
+
+state 9
+	process_dockerfile:  PROCESS.IDENTIFIER DOCKERFILE IDENTIFIER 
+	process_dockerfile:  PROCESS.IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list 
+	process_dockerfile:  PROCESS.IDENTIFIER DOCKERFILE IDENTIFIER ARTIFACTS artifact_list 
+	process_dockerfile:  PROCESS.IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list ARTIFACTS artifact_list 
+
+	IDENTIFIER  shift 12
+	.  error
+
+
+state 10
+	stmts:  stmt SEMICOLON.stmts 
+	stmts: .    (1)
+
+	SOURCE  shift 8
+	PROCESS  shift 9
+	.  reduce 1 (src line 60)
+
+	stmts  goto 13
+	stmt  goto 2
+	source  goto 3
+	source_static  goto 5
+	source_git  goto 6
+	process  goto 4
+	process_dockerfile  goto 7
+
+state 11
+	source_static:  SOURCE IDENTIFIER.FETCH URL 
+	source_static:  SOURCE IDENTIFIER.FETCH URL SHA256 SHA256SUM 
+	source_git:  SOURCE IDENTIFIER.GIT URL 
+	source_git:  SOURCE IDENTIFIER.GIT URL BRANCH IDENTIFIER 
+
+	FETCH  shift 14
+	GIT  shift 15
+	.  error
+
+
+state 12
+	process_dockerfile:  PROCESS IDENTIFIER.DOCKERFILE IDENTIFIER 
+	process_dockerfile:  PROCESS IDENTIFIER.DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list 
+	process_dockerfile:  PROCESS IDENTIFIER.DOCKERFILE IDENTIFIER ARTIFACTS artifact_list 
+	process_dockerfile:  PROCESS IDENTIFIER.DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list ARTIFACTS artifact_list 
+
+	DOCKERFILE  shift 16
+	.  error
+
+
+state 13
+	stmts:  stmt SEMICOLON stmts.    (2)
+
+	.  reduce 2 (src line 66)
+
+
+state 14
+	source_static:  SOURCE IDENTIFIER FETCH.URL 
+	source_static:  SOURCE IDENTIFIER FETCH.URL SHA256 SHA256SUM 
+
+	URL  shift 17
+	.  error
+
+
+state 15
+	source_git:  SOURCE IDENTIFIER GIT.URL 
+	source_git:  SOURCE IDENTIFIER GIT.URL BRANCH IDENTIFIER 
+
+	URL  shift 18
+	.  error
+
+
+state 16
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE.IDENTIFIER 
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE.IDENTIFIER DEPENDENCIES dependency_list 
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE.IDENTIFIER ARTIFACTS artifact_list 
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE.IDENTIFIER DEPENDENCIES dependency_list ARTIFACTS artifact_list 
+
+	IDENTIFIER  shift 19
+	.  error
+
+
+state 17
+	source_static:  SOURCE IDENTIFIER FETCH URL.    (7)
+	source_static:  SOURCE IDENTIFIER FETCH URL.SHA256 SHA256SUM 
+
+	SHA256  shift 20
+	.  reduce 7 (src line 92)
+
+
+state 18
+	source_git:  SOURCE IDENTIFIER GIT URL.    (9)
+	source_git:  SOURCE IDENTIFIER GIT URL.BRANCH IDENTIFIER 
+
+	BRANCH  shift 21
+	.  reduce 9 (src line 101)
+
+
+state 19
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER.    (12)
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER.DEPENDENCIES dependency_list 
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER.ARTIFACTS artifact_list 
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER.DEPENDENCIES dependency_list ARTIFACTS artifact_list 
+
+	DEPENDENCIES  shift 22
+	ARTIFACTS  shift 23
+	.  reduce 12 (src line 116)
+
+
+state 20
+	source_static:  SOURCE IDENTIFIER FETCH URL SHA256.SHA256SUM 
+
+	SHA256SUM  shift 24
+	.  error
+
+
+state 21
+	source_git:  SOURCE IDENTIFIER GIT URL BRANCH.IDENTIFIER 
+
+	IDENTIFIER  shift 25
+	.  error
+
+
+state 22
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES.dependency_list 
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES.dependency_list ARTIFACTS artifact_list 
+
+	IDENTIFIER  shift 28
+	SOFT  shift 29
+	FULL  shift 30
+	.  error
+
+	dependency_list  goto 26
+	dependency  goto 27
+
+state 23
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER ARTIFACTS.artifact_list 
+
+	IDENTIFIER  shift 32
+	.  error
+
+	artifact_list  goto 31
+
+state 24
+	source_static:  SOURCE IDENTIFIER FETCH URL SHA256 SHA256SUM.    (8)
+
+	.  reduce 8 (src line 96)
+
+
+state 25
+	source_git:  SOURCE IDENTIFIER GIT URL BRANCH IDENTIFIER.    (10)
+
+	.  reduce 10 (src line 106)
+
+
+state 26
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list.    (13)
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list.ARTIFACTS artifact_list 
+
+	ARTIFACTS  shift 33
+	.  reduce 13 (src line 123)
+
+
+state 27
+	dependency_list:  dependency.    (16)
+	dependency_list:  dependency.COMMA dependency_list 
+
+	COMMA  shift 34
+	.  reduce 16 (src line 140)
+
+
+state 28
+	dependency:  IDENTIFIER.    (18)
+	dependency:  IDENTIFIER.ARROW IDENTIFIER 
+
+	ARROW  shift 35
+	.  reduce 18 (src line 151)
+
+
+state 29
+	dependency:  SOFT.IDENTIFIER 
+	dependency:  SOFT.FULL IDENTIFIER 
+	dependency:  SOFT.IDENTIFIER ARROW IDENTIFIER 
+	dependency:  SOFT.FULL IDENTIFIER ARROW IDENTIFIER 
+
+	IDENTIFIER  shift 36
+	FULL  shift 37
+	.  error
+
+
+state 30
+	dependency:  FULL.IDENTIFIER 
+	dependency:  FULL.SOFT IDENTIFIER 
+	dependency:  FULL.IDENTIFIER ARROW IDENTIFIER 
+	dependency:  FULL.SOFT IDENTIFIER ARROW IDENTIFIER 
+
+	IDENTIFIER  shift 38
+	SOFT  shift 39
+	.  error
+
+
+state 31
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER ARTIFACTS artifact_list.    (14)
+
+	.  reduce 14 (src line 129)
+
+
+state 32
+	artifact_list:  IDENTIFIER.    (28)
+	artifact_list:  IDENTIFIER.COMMA artifact_list 
+
+	COMMA  shift 40
+	.  reduce 28 (src line 201)
+
+
+state 33
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list ARTIFACTS.artifact_list 
+
+	IDENTIFIER  shift 32
+	.  error
+
+	artifact_list  goto 41
+
+state 34
+	dependency_list:  dependency COMMA.dependency_list 
+
+	IDENTIFIER  shift 28
+	SOFT  shift 29
+	FULL  shift 30
+	.  error
+
+	dependency_list  goto 42
+	dependency  goto 27
+
+state 35
+	dependency:  IDENTIFIER ARROW.IDENTIFIER 
+
+	IDENTIFIER  shift 43
+	.  error
+
+
+state 36
+	dependency:  SOFT IDENTIFIER.    (19)
+	dependency:  SOFT IDENTIFIER.ARROW IDENTIFIER 
+
+	ARROW  shift 44
+	.  reduce 19 (src line 156)
+
+
+state 37
+	dependency:  SOFT FULL.IDENTIFIER 
+	dependency:  SOFT FULL.IDENTIFIER ARROW IDENTIFIER 
+
+	IDENTIFIER  shift 45
+	.  error
+
+
+state 38
+	dependency:  FULL IDENTIFIER.    (20)
+	dependency:  FULL IDENTIFIER.ARROW IDENTIFIER 
+
+	ARROW  shift 46
+	.  reduce 20 (src line 161)
+
+
+state 39
+	dependency:  FULL SOFT.IDENTIFIER 
+	dependency:  FULL SOFT.IDENTIFIER ARROW IDENTIFIER 
+
+	IDENTIFIER  shift 47
+	.  error
+
+
+state 40
+	artifact_list:  IDENTIFIER COMMA.artifact_list 
+
+	IDENTIFIER  shift 32
+	.  error
+
+	artifact_list  goto 48
+
+state 41
+	process_dockerfile:  PROCESS IDENTIFIER DOCKERFILE IDENTIFIER DEPENDENCIES dependency_list ARTIFACTS artifact_list.    (15)
+
+	.  reduce 15 (src line 135)
+
+
+state 42
+	dependency_list:  dependency COMMA dependency_list.    (17)
+
+	.  reduce 17 (src line 145)
+
+
+state 43
+	dependency:  IDENTIFIER ARROW IDENTIFIER.    (23)
+
+	.  reduce 23 (src line 176)
+
+
+state 44
+	dependency:  SOFT IDENTIFIER ARROW.IDENTIFIER 
+
+	IDENTIFIER  shift 49
+	.  error
+
+
+state 45
+	dependency:  SOFT FULL IDENTIFIER.    (21)
+	dependency:  SOFT FULL IDENTIFIER.ARROW IDENTIFIER 
+
+	ARROW  shift 50
+	.  reduce 21 (src line 166)
+
+
+state 46
+	dependency:  FULL IDENTIFIER ARROW.IDENTIFIER 
+
+	IDENTIFIER  shift 51
+	.  error
+
+
+state 47
+	dependency:  FULL SOFT IDENTIFIER.    (22)
+	dependency:  FULL SOFT IDENTIFIER.ARROW IDENTIFIER 
+
+	ARROW  shift 52
+	.  reduce 22 (src line 171)
+
+
+state 48
+	artifact_list:  IDENTIFIER COMMA artifact_list.    (29)
+
+	.  reduce 29 (src line 206)
+
+
+state 49
+	dependency:  SOFT IDENTIFIER ARROW IDENTIFIER.    (24)
+
+	.  reduce 24 (src line 181)
+
+
+state 50
+	dependency:  SOFT FULL IDENTIFIER ARROW.IDENTIFIER 
+
+	IDENTIFIER  shift 53
+	.  error
+
+
+state 51
+	dependency:  FULL IDENTIFIER ARROW IDENTIFIER.    (25)
+
+	.  reduce 25 (src line 186)
+
+
+state 52
+	dependency:  FULL SOFT IDENTIFIER ARROW.IDENTIFIER 
+
+	IDENTIFIER  shift 54
+	.  error
+
+
+state 53
+	dependency:  SOFT FULL IDENTIFIER ARROW IDENTIFIER.    (26)
+
+	.  reduce 26 (src line 191)
+
+
+state 54
+	dependency:  FULL SOFT IDENTIFIER ARROW IDENTIFIER.    (27)
+
+	.  reduce 27 (src line 196)
+
+
+20 terminals, 11 nonterminals
+30 grammar rules, 55/2000 states
+0 shift/reduce, 0 reduce/reduce conflicts reported
+60 working sets used
+memory: parser 20/30000
+0 extra closures
+47 shift entries, 1 exceptions
+14 goto entries
+7 entries saved by goto default
+Optimizer space used: output 54/30000
+54 table entries, 0 zero
+maximum spread: 20, maximum offset: 40
