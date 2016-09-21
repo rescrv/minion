@@ -20,14 +20,14 @@ func (md *MinionDaemon) dockerfileProcessor(dp DockerfileProcess, bd *Build) Pro
 	return DockerfileProcessor{dp, bd}
 }
 
-func (dp DockerfileProcessor) BuildIt(sources map[string]HeadPtr, artifacts map[Artifact]ArtifactPtr) (pr ProcessReport) {
+func (dp DockerfileProcessor) BuildIt(sources map[string]HeadPtr, artifacts ArtifactMap) (pr ProcessReport) {
 	pr = ProcessReport{Status: ERROR,
 		Cached:    false,
 		Released:  false,
 		StatusMsg: "unknown error",
 		Log:       "",
 		Inputs:    BlobID(""),
-		Artifacts: make(map[Artifact]ArtifactPtr)}
+		Artifacts: make(ArtifactMap)}
 	// check for a cached release
 	inputs := dp.inputs(sources, artifacts, "-")
 	var err error
@@ -191,7 +191,7 @@ func (dp DockerfileProcessor) BuildIt(sources map[string]HeadPtr, artifacts map[
 	return
 }
 
-func (dp DockerfileProcessor) inputs(sources map[string]HeadPtr, artifacts map[Artifact]ArtifactPtr, image string) string {
+func (dp DockerfileProcessor) inputs(sources map[string]HeadPtr, artifacts ArtifactMap, image string) string {
 	inputs := fmt.Sprintf("Dockerfile\nProcess: %s\nImage: %s\n", dp.Name(), image)
 	for _, dep := range dp.deps {
 		if dep.Soft() {

@@ -2,6 +2,7 @@ package minion
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -663,7 +664,7 @@ func (md *MinionDaemon) Build(target string, build_name string, retry_failures b
 		buildMtx:  buildMtx,
 		buildCnd:  buildCnd,
 		failed:    len(processes),
-		artifacts: make(map[Artifact]ArtifactPtr),
+		artifacts: make(ArtifactMap),
 		reports:   make(map[string]ProcessReport)}
 	md.buildsMtx.Lock()
 	defer md.buildsMtx.Unlock()
@@ -676,7 +677,7 @@ func (md *MinionDaemon) isCached(iid BlobID) (BlobID, bool) {
 }
 
 func (md *MinionDaemon) readProcessReport(oid BlobID) (pr ProcessReport, err error) {
-	pr.Artifacts = make(map[Artifact]ArtifactPtr)
+	pr.Artifacts = make(ArtifactMap)
 	f, err := os.Open(md.blobs.Path(oid))
 	if err != nil {
 		return
@@ -817,6 +818,37 @@ func (md *MinionDaemon) writeProcessReport(proc Process, pr ProcessReport) (Blob
 	return md.blobs.Add(f.Name())
 }
 
+type ArtifactMap map[Artifact]ArtifactPtr
+
+func (a ArtifactMap) MarshalJSON() ([]byte, error) {
+    bystr := make(map[string]ArtifactPtr)
+    for art, ptr := range(a) {
+        bystr[art.Display()] = ptr
+    }
+    return json.Marshal(bystr)
+}
+
+func (a *ArtifactMap) UnmarshalJSON(text []byte) error {
+    *a = make(ArtifactMap)
+    var bystr map[string]ArtifactPtr
+    err := json.Unmarshal(text, &bystr)
+    if err != nil {
+        return err
+    }
+    for k := range *a {
+        delete(*a, k)
+    }
+    fmt.Printf("bystr: %s\n", bystr)
+    for k, v := range(bystr) {
+        pieces := strings.Split(k, "=>")
+        if len(pieces) != 2 {
+            return fmt.Errorf("invalid artifact")
+        }
+        (*a)[Artifact{pieces[0], pieces[1]}] = v
+    }
+    return nil
+}
+
 type Build struct {
 	BuildInfo
 	mbid      BlobID
@@ -829,7 +861,7 @@ type Build struct {
 	buildMtx  *sync.Mutex
 	buildCnd  *sync.Cond
 	failed    int
-	artifacts map[Artifact]ArtifactPtr
+	artifacts ArtifactMap
 	reports   map[string]ProcessReport
 }
 
@@ -867,7 +899,7 @@ type ProcessReport struct {
 	StatusMsg string
 	Log       string
 	Inputs    BlobID
-	Artifacts map[Artifact]ArtifactPtr
+	Artifacts ArtifactMap
 }
 
 func (p ProcessReport) IsSuccess() bool {
@@ -875,7 +907,7 @@ func (p ProcessReport) IsSuccess() bool {
 }
 
 type Processor interface {
-	BuildIt(map[string]HeadPtr, map[Artifact]ArtifactPtr) ProcessReport
+	BuildIt(map[string]HeadPtr, ArtifactMap) ProcessReport
 }
 
 func (bd *Build) processIndex(proc Process) int {
@@ -887,14 +919,14 @@ func (bd *Build) processIndex(proc Process) int {
 	return len(bd.procs)
 }
 
-func (bd *Build) waitForDependencies(proc Process) (bool, map[string]HeadPtr, map[Artifact]ArtifactPtr) {
+func (bd *Build) waitForDependencies(proc Process) (bool, map[string]HeadPtr, ArtifactMap) {
 	idx := bd.processIndex(proc)
 	bd.buildMtx.Lock()
 	defer bd.buildMtx.Unlock()
 	// loop until dependencies are satisfied or an error is encountered
 	for {
 		sources := make(map[string]HeadPtr)
-		artifacts := make(map[Artifact]ArtifactPtr)
+		artifacts := make(ArtifactMap)
 		// a lower process failed
 		if bd.failed < idx {
 			return false, sources, artifacts
@@ -997,7 +1029,30 @@ func (bd *Build) Run() (*BuildReport, error) {
 	for _, proc := range bd.mf.Processes {
 		procs = append(procs, proc.Name())
 	}
-	return &BuildReport{BuildInfo: bd.BuildInfo,
+    br := &BuildReport{BuildInfo: bd.BuildInfo,
 		Processes: procs,
-		Reports:   bd.reports}, nil
+		Reports:   bd.reports}
+    txt, err := json.Marshal(br)
+    if err != nil {
+        return br, err
+    }
+	f, err := ioutil.TempFile(bd.md.TMP(), "process-report-")
+    if err != nil {
+        return br, err
+    }
+    defer f.Close()
+    n, err := f.Write(txt)
+    if err != nil {
+        return br, err
+    }
+    if n != len(txt) {
+        return br, fmt.Errorf("could not write build: short write")
+    }
+    err = f.Sync()
+    if err != nil {
+        return br, err
+    }
+    p := path.Join(bd.md.BUILDS(), fmt.Sprintf("%s:%s", bd.BuildInfo.Target, bd.BuildInfo.Name))
+    err = os.Rename(f.Name(), p)
+    return br, err
 }
