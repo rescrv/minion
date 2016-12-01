@@ -601,37 +601,97 @@ func (md *MinionDaemon) ListBuilds() ([]BuildInfo, error) {
 	return builds, nil
 }
 
-func (md *MinionDaemon) Build(target string, build_name string, retry_failures bool, processes []string) (*BuildReport, error) {
+func (md *MinionDaemon) IdentifyLatestBuild(target string) (build BuildInfo, err error) {
+	builds, err := md.ListBuilds()
+	if err != nil {
+		return
+	}
+	for _, b := range builds {
+		if build.Time.Before(b.Time) {
+			build = b
+		}
+	}
+	return
+}
+
+func (md *MinionDaemon) GetBuild(target string, build_name string) (*BuildReport, error) {
+	var br BuildReport
+	p := path.Join(md.BUILDS(), fmt.Sprintf("%s:%s", target, build_name))
+	buf, err := ioutil.ReadFile(p)
+	if err != nil {
+		return &br, err
+	}
+	if err = json.Unmarshal(buf, &br); err != nil {
+		return &br, err
+	}
+	return &br, nil
+}
+
+func (md *MinionDaemon) GetArtifacts(target string, build_name string, dir string) error {
+	br, err := md.GetBuild(target, build_name)
+	if err != nil {
+		return err
+	}
+	for _, rep := range br.Reports {
+		for art, ptr := range rep.Artifacts {
+			p := path.Join(dir, art.Display(), ptr.Path)
+			d := path.Dir(p)
+			err = os.MkdirAll(d, 0700)
+			if err != nil {
+				return fmt.Errorf("could not create directory: %s", err)
+			}
+			err = md.blobs.CopyTo(ptr.Blob, p)
+			if err != nil {
+				return fmt.Errorf("could not copy artifacts: %s", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (md *MinionDaemon) preBuild(target string, build_name string, _processes []string) (mbid BlobID, hbid BlobID, mf Minionfile, processes []string, heads map[string]HeadPtr, err error) {
 	// make sure we're looking for a good target
 	if !md.isValidTargetName(target) {
-		return nil, fmt.Errorf("%s is not a valid target name", target)
+		err = fmt.Errorf("%s is not a valid target name", target)
+		return
+	}
+	// make sure we don't override the "latest" meta-build
+	if build_name == "latest" {
+		err = fmt.Errorf("cannot have a build named \"latest\"")
+		return
 	}
 	md.headsMtx.Lock()
 	defer md.headsMtx.Unlock()
 	// make sure the target exists
 	if !md.isTarget(target) {
-		return nil, fmt.Errorf("target %s does not exist", target)
+		err = fmt.Errorf("target %s does not exist", target)
+		return
 	}
 	// XXX make sure build doesn't exist
 	// snapshot minionfile
-	mbid, err := md.blobs.Add(md.MINIONFILE())
+	mbid, err = md.blobs.Add(md.MINIONFILE())
 	if err != nil {
-		return nil, fmt.Errorf("could not snapshot Minionfile: %s", err)
+		err = fmt.Errorf("could not snapshot Minionfile: %s", err)
+		return
 	}
 	// snapshot HEADS
-	hbid, err := md.blobs.Add(md.targetHeadsPath(target))
+	hbid, err = md.blobs.Add(md.targetHeadsPath(target))
 	if err != nil {
-		return nil, fmt.Errorf("could not snapshot Minionfile: %s", err)
+		err = fmt.Errorf("could not snapshot Minionfile: %s", err)
+		return
 	}
 	// get the Minionfile in parsed form
-	mf, err := ParseMinionfile(md.blobs.Path(mbid))
+	mf, err = ParseMinionfile(md.blobs.Path(mbid))
 	if err != nil {
-		return nil, fmt.Errorf("could not parse Minionfile: %s", err)
+		err = fmt.Errorf("could not parse Minionfile: %s", err)
+		return
 	}
 	// make sure that every process named actually exists
+	processes = _processes
 	for _, name := range processes {
 		if mf.GetProcess(name) == nil {
-			return nil, fmt.Errorf("unknown process %s", name)
+			err = fmt.Errorf("unknown process %s", name)
+			return
 		}
 	}
 	// default is to update everything if request is to update nothing
@@ -645,9 +705,19 @@ func (md *MinionDaemon) Build(target string, build_name string, retry_failures b
 		}
 	}
 	// get the HEADS
-	heads, err := md.parseHeads(md.blobs.Path(hbid))
+	heads, err = md.parseHeads(md.blobs.Path(hbid))
 	if err != nil {
-		return nil, fmt.Errorf("could not parse heads: %s", err)
+		err = fmt.Errorf("could not parse heads: %s", err)
+		return
+	}
+	err = nil
+	return
+}
+
+func (md *MinionDaemon) Build(target string, build_name string, retry_failures bool, processes []string) (*BuildReport, error) {
+	mbid, hbid, mf, processes, heads, err := md.preBuild(target, build_name, processes)
+	if err != nil {
+		return nil, err
 	}
 	buildMtx := &sync.Mutex{}
 	buildCnd := sync.NewCond(buildMtx)
@@ -667,9 +737,13 @@ func (md *MinionDaemon) Build(target string, build_name string, retry_failures b
 		artifacts: make(ArtifactMap),
 		reports:   make(map[string]ProcessReport)}
 	md.buildsMtx.Lock()
-	defer md.buildsMtx.Unlock()
 	md.builds[build.BuildInfo] = &build
-	return build.Run()
+	md.buildsMtx.Unlock()
+	br, err := build.Run()
+	md.buildsMtx.Lock()
+	delete(md.builds, build.BuildInfo)
+	md.buildsMtx.Unlock()
+	return br, err
 }
 
 func (md *MinionDaemon) isCached(iid BlobID) (BlobID, bool) {
@@ -838,7 +912,6 @@ func (a *ArtifactMap) UnmarshalJSON(text []byte) error {
 	for k := range *a {
 		delete(*a, k)
 	}
-	fmt.Printf("bystr: %s\n", bystr)
 	for k, v := range bystr {
 		pieces := strings.Split(k, "=>")
 		if len(pieces) != 2 {

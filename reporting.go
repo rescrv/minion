@@ -89,3 +89,35 @@ func (br *BuildReport) ReportLong() string {
 	}
 	return r
 }
+
+func (br *BuildReport) ReportFull() string {
+	r := br.ReportInfo()
+	pad := 10
+	for _, proc := range br.Processes {
+		if len(proc) > pad {
+			pad = len(proc)
+		}
+	}
+	for _, proc := range br.Processes {
+		rep, ok := br.Reports[proc]
+		if !ok {
+			r += fmt.Sprintf("%s SKIPPED\n", proc)
+			continue
+		}
+		for len(proc) < pad {
+			proc += " "
+		}
+		r += fmt.Sprintf("%s %s", proc, rep.Status)
+		if rep.Released {
+			r += " RELEASED"
+		} else if rep.Cached {
+			r += " CACHED"
+		}
+		r += "\n"
+		if rep.Status != SUCCESS {
+			r += tabIndent(rep.StatusMsg)
+		}
+		r += tabIndent(rep.Log)
+	}
+	return r
+}

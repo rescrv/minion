@@ -143,6 +143,72 @@ func (mrpc *MinionRPCClient) TargetSetRefSpec(target string, source string, refs
 	}
 }
 
+type GetBuildRequest struct {
+	Target    string
+	BuildName string
+}
+
+func (mrpc *InnerMinionRPCServer) GetBuild(req GetBuildRequest, resp *BuildReport) error {
+	var rep *BuildReport = nil
+	var err error
+	rep, err = mrpc.md.GetBuild(req.Target, req.BuildName)
+	if err == nil {
+		return fmt.Errorf("build failed: %s", err)
+	} else {
+		*resp = *rep
+		return nil
+	}
+}
+
+func (mrpc *MinionRPCClient) GetBuild(target string, build_name string) (*BuildReport, error) {
+	req := GetBuildRequest{target, build_name}
+	var report BuildReport
+	err := mrpc.client.Call("InnerMinionRPCServer.GetBuild", req, &report)
+	if err == nil {
+		return &report, nil
+	} else {
+		return nil, fmt.Errorf("could not build: %s", err)
+	}
+}
+
+type GetArtifactsRequest struct {
+	Target    string
+	BuildName string
+	DirName   string
+}
+
+func (mrpc *InnerMinionRPCServer) GetArtifacts(req GetArtifactsRequest, success *bool) error {
+	var err error
+	*success = false
+	if req.BuildName == "latest" {
+		b, err := mrpc.md.IdentifyLatestBuild(req.Target)
+		if err != nil {
+			return fmt.Errorf("could not identify latest build: %s", err)
+		} else if b.Target != req.Target {
+			return fmt.Errorf("no builds for %s found", req.Target)
+		}
+		req.BuildName = b.Name
+	}
+	err = mrpc.md.GetArtifacts(req.Target, req.BuildName, req.DirName)
+	if err != nil {
+		return fmt.Errorf("failed to get artifacts: %s", err)
+	} else {
+		*success = true
+		return nil
+	}
+}
+
+func (mrpc *MinionRPCClient) GetArtifacts(target string, build_name string, dir string) error {
+	req := GetArtifactsRequest{target, build_name, dir}
+	var success bool = false
+	err := mrpc.client.Call("InnerMinionRPCServer.GetArtifacts", req, &success)
+	if success {
+		return nil
+	} else {
+		return fmt.Errorf("could not get artifacts: %s", err)
+	}
+}
+
 type BuildRequest struct {
 	Target        string
 	BuildName     string

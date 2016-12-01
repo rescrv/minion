@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"path/filepath"
 	"git.rescrv.net/minion"
 	"os"
 	"time"
@@ -66,9 +67,17 @@ func main_build(mrpc *minion.MinionRPCClient, target string, name string) {
 	rep, err := mrpc.Build(target, name, true, []string{})
 	if err != nil {
 		fmt.Printf("error: %s\n", err)
-		return
+		os.Exit(2)
 	}
 	fmt.Printf(rep.ReportLong())
+}
+
+func main_get_artifacts(mrpc *minion.MinionRPCClient, target string, name string, dir string) {
+	err := mrpc.GetArtifacts(target, name, dir)
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+		os.Exit(2)
+	}
 }
 
 func main() {
@@ -121,6 +130,17 @@ func main() {
 			fmt.Printf("error: expected 2 or 3 arguments, got %d\n", len(args))
 			os.Exit(1)
 		}
+    case "get-artifacts":
+		if len(args) != 4 {
+			fmt.Printf("error: expected 4 arguments, got %d\n", len(args))
+			os.Exit(1)
+		}
+        p, err := filepath.Abs(args[3])
+        if err != nil {
+			fmt.Printf("error: %s\n", err)
+            os.Exit(1)
+        }
+        main_get_artifacts(mrpc, args[1], args[2], p)
 	default:
 		fmt.Printf("error: unknown command %s\n", args[0])
 		os.Exit(1)

@@ -117,7 +117,7 @@ func (dp DockerfileProcessor) BuildIt(sources map[string]HeadPtr, artifacts Arti
 			}
 			intermediate := ""
 			if a.Full() {
-				intermediate = dp.Name()
+				intermediate = a.Artifact.Process
 			}
 			dirn := path.Join(tmpdir, intermediate)
 			err = os.MkdirAll(dirn, 0700)
